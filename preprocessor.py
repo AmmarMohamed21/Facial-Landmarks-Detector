@@ -208,7 +208,7 @@ def CropAndResizeHelen():
         face_img = img[y1:y2, x1:x2]
 
         # Resize the image to 400x400
-        targetShape = (400, 400)
+        targetShape = (200, 200)
         face_img = cv2.resize(face_img, targetShape)
         
         # Update landmarks to match the cropped image and resized image
@@ -217,9 +217,9 @@ def CropAndResizeHelen():
         landmarks = landmarks * targetShape[0] // (x2 - x1)    
         
         # Save the cropped image
-        cv2.imwrite('datasets/croppedHelen/' + image_name, face_img)
+        cv2.imwrite('datasets/croppedHelen2/' + image_name, face_img)
         
         # Update the landmarks in the dataframe
         df.at[index, 'landmarks'] = landmarks.tolist()
 
-    df.to_csv('datasets/croppedHelen.csv', index=False)
+    df.to_csv('datasets/croppedHelen2.csv', index=False)
