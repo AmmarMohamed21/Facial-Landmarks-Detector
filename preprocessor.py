@@ -153,11 +153,11 @@ def procrustes_analysis(X, Y, scaling=True, reflection='best'):
     return d, Z, tform
 
 
-def CropAndResizeHelen():
+def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/',targetShape=(200,200)):
     '''
-    This function crops the images in the helen dataset around the face and resizes them to 400x400.
+    This function crops the images in the helen dataset around the face and resizes them to input target shape.
     ''' 
-    df = pd.read_csv('datasets/helen.csv')
+    df = pd.read_csv(filename)
     # Loop through each row in the dataframe
     for index, row in df.iterrows():
         # Get image name and landmarks
@@ -165,7 +165,7 @@ def CropAndResizeHelen():
         image_name = row['images']
         landmarks = ast.literal_eval(row['landmarks'])
 
-        image_dir = 'datasets/helen/'
+        image_dir = srcImageDir
         
         # Load image
         img = cv2.imread(image_dir + image_name)
@@ -207,8 +207,7 @@ def CropAndResizeHelen():
         # Crop the image around the face
         face_img = img[y1:y2, x1:x2]
 
-        # Resize the image to 400x400
-        targetShape = (200, 200)
+        # Resize the image to targetShape
         face_img = cv2.resize(face_img, targetShape)
         
         # Update landmarks to match the cropped image and resized image
@@ -217,7 +216,7 @@ def CropAndResizeHelen():
         landmarks = landmarks * targetShape[0] // (x2 - x1)    
         
         # Save the cropped image
-        cv2.imwrite('datasets/croppedHelen2/' + image_name, face_img)
+        cv2.imwrite(targetImagesDir + image_name, face_img)
         
         # Update the landmarks in the dataframe
         df.at[index, 'landmarks'] = landmarks.tolist()
