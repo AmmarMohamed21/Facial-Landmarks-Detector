@@ -153,7 +153,7 @@ def procrustes_analysis(X, Y, scaling=True, reflection='best'):
     return d, Z, tform
 
 
-def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/',targetShape=(200,200)):
+def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/', targetCSVName= 'datasets/croppedHelen2.csv',targetShape=(200,200)):
     '''
     This function crops the images in the helen dataset around the face and resizes them to input target shape.
     ''' 
@@ -221,4 +221,4 @@ def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/hele
         # Update the landmarks in the dataframe
         df.at[index, 'landmarks'] = landmarks.tolist()
 
-    df.to_csv('datasets/croppedHelen2.csv', index=False)
+    df.to_csv(targetCSVName, index=False)
