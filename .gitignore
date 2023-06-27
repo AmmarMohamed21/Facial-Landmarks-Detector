@@ -8,3 +8,7 @@
 *.pyc
 *.pts
 *.png
+*.npz
+*.pyc
+*.pyc
+*.dat
