@@ -4,7 +4,40 @@ import ast
 import numpy as np
 import cv2
 
-def CreateCSVFromAnnotations(annotationsPath):
+def CreateCSVFromAnnotations68(annotationsPath, outputPath):
+    images = []
+    landmarks = []
+    allfiles = os.listdir(annotationsPath)
+    for filename in allfiles:
+      #read only files with extension .pts
+        if filename.endswith(".pts"):
+            f = os.path.join(annotationsPath, filename)
+            if os.path.isfile(f):
+                with open(f) as file:
+                    #check if image is jpg or png
+                    if filename.split(".")[0]+".jpg" in allfiles:
+                        images.append(filename.split(".")[0]+".jpg")
+                    else:
+                        images.append(filename.split(".")[0]+".png")
+                    #Skip first 3 lines
+                    for i in range(3):
+                        file.readline()
+                    
+                    imagelabels = []
+                    i = 0
+                    for line in file: 
+                        if i == 68:
+                            break
+                        cooardinates = line.split(" ")
+                        cooardinates = [int(round(float(cooardinates[0]))), int(round(float(cooardinates[1])))]
+                        imagelabels.append(cooardinates)
+                        i+=1
+                    landmarks.append(imagelabels)
+
+    df = pd.DataFrame(data = {'images':images, 'landmarks': landmarks})
+    df.to_csv(outputPath, index=False)
+
+def CreateCSVFromAnnotations(annotationsPath, outputPath):
     images = []
     landmarks = []
     for filename in os.listdir(annotationsPath):
@@ -19,7 +52,7 @@ def CreateCSVFromAnnotations(annotationsPath):
                 imagelabels.append(cooardinates)
             landmarks.append(imagelabels)
     df = pd.DataFrame(data = {'images':images, 'landmarks': landmarks})
-    df.to_csv('/content/drive/My Drive/helen.csv', index=False)
+    df.to_csv(outputPath, index=False)
 
 
 def array_to_columns(row):
@@ -39,121 +72,9 @@ def ReduceHelenDataset(datasetPath, targetDatasetPth):
     df.drop('landmarks', axis=1, inplace=True)
     new_df = pd.concat([df, new_df], axis=1)
     new_df.to_csv(targetDatasetPth, index=False)
-    
-
-def procrustes_analysis(X, Y, scaling=True, reflection='best'):
-    """
-    A port of MATLAB's `procrustes` function to Numpy.
-
-    Procrustes analysis determines a linear transformation (translation,
-    reflection, orthogonal rotation and scaling) of the points in Y to best
-    conform them to the points in matrix X, using the sum of squared errors
-    as the goodness of fit criterion.
-
-        d, Z, [tform] = procrustes(X, Y)
-
-    Inputs:
-    ------------
-    X, Y    
-        matrices of target and input coordinates. they must have equal
-        numbers of  points (rows), but Y may have fewer dimensions
-        (columns) than X.
-
-    scaling 
-        if False, the scaling component of the transformation is forced
-        to 1
-
-    reflection
-        if 'best' (default), the transformation solution may or may not
-        include a reflection component, depending on which fits the data
-        best. setting reflection to True or False forces a solution with
-        reflection or no reflection respectively.
-
-    Outputs
-    ------------
-    d       
-        the residual sum of squared errors, normalized according to a
-        measure of the scale of X, ((X - X.mean(0))**2).sum()
-
-    Z
-        the matrix of transformed Y-values
-
-    tform   
-        a dict specifying the rotation, translation and scaling that
-        maps X --> Y
-
-    """
-
-    n,m = X.shape
-    ny,my = Y.shape
-
-    muX = X.mean(0)
-    muY = Y.mean(0)
-
-    X0 = X - muX
-    Y0 = Y - muY
-
-    ssX = (X0**2.).sum()
-    ssY = (Y0**2.).sum()
-
-    # centred Frobenius norm
-    normX = np.sqrt(ssX)
-    normY = np.sqrt(ssY)
-
-    # scale to equal (unit) norm
-    X0 /= normX
-    Y0 /= normY
-
-    if my < m:
-        Y0 = np.concatenate((Y0, np.zeros(n, m-my)),0)
-
-    # optimum rotation matrix of Y
-    A = np.dot(X0.T, Y0)
-    U,s,Vt = np.linalg.svd(A,full_matrices=False)
-    V = Vt.T
-    T = np.dot(V, U.T)
-
-    if reflection != 'best':
-
-        # does the current solution use a reflection?
-        have_reflection = np.linalg.det(T) < 0
-
-        # if that's not what was specified, force another reflection
-        if reflection != have_reflection:
-            V[:,-1] *= -1
-            s[-1] *= -1
-            T = np.dot(V, U.T)
-
-    traceTA = s.sum()
-
-    if scaling:
-
-        # optimum scaling of Y
-        b = traceTA * normX / normY
-
-        # standarised distance between X and b*Y*T + c
-        d = 1 - traceTA**2
-
-        # transformed coords
-        Z = normX*traceTA*np.dot(Y0, T) + muX
-
-    else:
-        b = 1
-        d = 1 + ssY/ssX - 2 * traceTA * normY / normX
-        Z = normY*np.dot(Y0, T) + muX
-
-    # transformation matrix
-    if my < m:
-        T = T[:my,:]
-    c = muX - b*np.dot(muY, T)
-    
-    #transformation values 
-    tform = {'rotation':T, 'scale':b, 'translation':c}
-   
-    return d, Z, tform
 
 
-def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/', targetCSVName= 'datasets/croppedHelen2.csv',targetShape=(200,200)):
+def CropAndResizeDataset(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/', targetCSVName= 'datasets/croppedHelen2.csv',targetShape=(200,200), cropPaddingTop=0.3, cropPaddingBottom=0.1, cropPaddingLeft=0.1, cropPaddingRight=0.1):
     '''
     This function crops the images in the helen dataset around the face and resizes them to input target shape.
     ''' 
@@ -177,24 +98,25 @@ def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/hele
         x1, y1 = np.min(landmarks, axis=0)
         x2, y2 = np.max(landmarks, axis=0)
         
-        # Compute the center of the face
-        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-        
         # Compute the width and height of the face
         w, h = x2 - x1, y2 - y1
         
         # Add some padding to the face region
-        padding = 0.3
-        x1 -= int(w * padding)
-        y1 -= int(h * padding)
-        x2 += int(w * padding)
-        y2 += int(h * padding)
+        # padding = cropPadding
+        # x1 -= int(w * padding)
+        # y1 -= int(h * padding)
+        # x2 += int(w * padding)
+        # y2 += int(h * padding)
+        x1 -= int(w * cropPaddingLeft)
+        y1 -= int(h * cropPaddingTop)
+        x2 += int(w * cropPaddingRight)
+        y2 += int(h * cropPaddingBottom)
 
         # Make sure the padding is not out of bounds
         x1, y1 = max(x1, 0), max(y1, 0)
         x2, y2 = min(x2, img.shape[1] - 1), min(y2, img.shape[0] - 1)
 
-        # Make the bounding box a square
+        # Make the bounding box a square #TODO
         w, h = x2 - x1, y2 - y1
         if w > h:
             x1 += (w - h) // 2
@@ -216,6 +138,9 @@ def CropAndResizeHelen(filename='datasets/helen.csv', srcImageDir='datasets/hele
         landmarks = landmarks * targetShape[0] // (x2 - x1)    
         
         # Save the cropped image
+        #check if directory exists
+        if not os.path.exists(targetImagesDir):
+            os.makedirs(targetImagesDir)
         cv2.imwrite(targetImagesDir + image_name, face_img)
         
         # Update the landmarks in the dataframe
