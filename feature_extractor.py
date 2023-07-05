@@ -5,23 +5,23 @@ from skimage.feature import hog
 
 def processImage(image):
     # Convert image to grayscale
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if len(image.shape) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # Equalize the histogram
     image = cv2.equalizeHist(image)
     return image
 
-def getHogFromLandmarks(landmarks, image, radius=10, pixels_per_cell=(10, 10), cells_per_block=(2, 2), orientations=8, useSkimage=True):
+def getHogFromLandmarks(landmarks, image, radius=10, pixels_per_cell=(10, 10), cells_per_block=(2, 2), orientations=8, useSkimage=True, preprocess=True):
 
     features = []
 
-
-    #image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = processImage(image)
+    if preprocess:
+        image = processImage(image) # REMOVE AND DO ONCE
 
     for landmark in landmarks:
         # Extract the patch around the landmark
         x, y = landmark
-        x= max(0,x) #TODO: REMOVE NEGATIVES FROM DATASET
+        x= max(0,x) 
         y= max(0,y)
         x= min(x, image.shape[1]-1) 
         y= min(y, image.shape[0]-1)
@@ -44,12 +44,12 @@ def getHogFromLandmarks(landmarks, image, radius=10, pixels_per_cell=(10, 10), c
 
     return np.array(features)
 
-def getSiftFromLandmarks(landmarks, image, radius=10):
+def getSiftFromLandmarks(landmarks, image, radius=10, preprocess=True):
 
     features = np.zeros((len(landmarks), 128))
 
-    #image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = processImage(image)
+    if preprocess:
+        image = processImage(image) # REMOVE AND DO ONCE
 
     keypoints = []
 
@@ -85,12 +85,12 @@ def getSiftFromLandmarks(landmarks, image, radius=10):
     return features.flatten()
 
 
-def getORBFromLandmarks(landmarks, image, radius=10):
+def getORBFromLandmarks(landmarks, image, radius=10, preprocess=True):
 
     features = np.zeros((len(landmarks), 32))
 
-    #image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = processImage(image)
+    if preprocess:
+        image = processImage(image) # REMOVE AND DO ONCE
 
     keypoints = []
 
