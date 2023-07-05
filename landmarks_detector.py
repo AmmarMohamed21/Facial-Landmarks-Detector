@@ -5,7 +5,7 @@ import numpy as np
 import ast
 import joblib 
 import cv2
-from feature_extractor import *
+from image_features_extractor import *
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
