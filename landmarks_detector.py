@@ -11,18 +11,29 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 
 
-rightEyeStartIndex = 36
+#Indices of eyes used in calculating normalized error
+rightEyeStartIndex = 36 
 rightEyeEndIndex = 39
 leftEyeStartIndex = 42
 leftEyeEndIndex = 45
 
+
 class FeatureType(Enum):
+    '''
+    describing the type of features used in training the regressors
+    '''
     HOG = 1
     SIFT = 2
     ORB = 3
 
 class LandmarksDetector:
     def __init__(self, isPredictor=False, modelspath=None):
+        '''
+        isPredictor: if true, load models from modelspath for using the model for prediction
+        modelspath: path to folder containing regressor models, pca models, standard scaler models and mean shape
+        '''
+
+        #Loading models from modelspath and initial mean shape
         if isPredictor:
             assert modelspath is not None
 
@@ -47,11 +58,13 @@ class LandmarksDetector:
         
     
     def predict(self, image, facebounds):
-        
+        '''
+        Performs landmarks detection on image 
+        image: input np array image, can be either grayscale, rgb or bgr
+        facebounds: bounds of face in image (x1,y1,x2,y2)
+        '''
         faceimage = image[facebounds[1]:facebounds[3], facebounds[0]:facebounds[2]]
-        
-        faceimage = processImage(faceimage)
-        
+                
         #set initial shape to mean shape
         initial_prediction = self.mean_shape
 
@@ -61,10 +74,13 @@ class LandmarksDetector:
         #resize image to (200,200)
         img = cv2.resize(faceimage, self.imagesmodelshape)
 
+        #performs needed preprocessing, transform to gray scale if needed and histogram equalization
+        img = processImage(img)
 
+        #initial prediction
         shape = initial_prediction
-        #Predict offset from regressors
 
+        #Applying all 9 regressors to get final shape
         shapesresults = []
         shapesresults.append(shape)
         for i in range (0, 3):
@@ -102,7 +118,18 @@ class LandmarksDetector:
         return landmarks
 
     def train(self, df_path, images_train_path, resultsOutputPath='models', L=3, K=3, sampleSize=5, alphas=[10000,5000,40000], B=1, T=10, featuresUsed=[FeatureType.HOG, FeatureType.HOG, FeatureType.SIFT]):
-
+        '''
+        df_path: path to csv file containing training set
+        images_train_path: path to folder containing training face images
+        resultsOutputPath: path to folder where models will be saved, default is 'models', it creates a folder for the models in the output directoy
+        L: number of iterations or stages for CFSS Algorithm
+        K: number of regressors for each stage
+        sampleSize: number of samples to be sampled at the start of each iteration
+        alphas: regularization parameters for each stage, should be of size L
+        B: sensitivty parameter for similarity measure
+        T: number of iterations for weights update
+        featuresUsed: list of features described as enum to be used for each regressor, should be of size L
+        '''
         self.__initializeReporting(resultsOutputPath)
         self.__setHyperParameters(L, K, sampleSize, alphas, B, T, featuresUsed)
         self.__prepareDataset(df_path, images_train_path)
@@ -125,7 +152,9 @@ class LandmarksDetector:
 
     
     def __runTraining(self):
-
+        '''
+        Main traning function that runs the CFSS algorithm
+        '''
         regressors = []
         pcaModels = []
         standardScalarModels = []
@@ -138,7 +167,6 @@ class LandmarksDetector:
             withreplacement = False #True if l == 2 else False
 
             #For each image in candidate_shapes, we sample possible shapes to get a result shape of (candidate_shapes.shape[0],sampleSize,candidate_shapes.shape[1])
-            
             samples = np.array([self.__getSamplesForEachImage(self.candidate_shapes, sampleSize=self.sampleSize, probabilities=self.probabilities[i], replace=withreplacement) for i in range(0,self.candidate_shapes.shape[0])])
 
             #samplesList.append(samples)
@@ -189,14 +217,9 @@ class LandmarksDetector:
 
                     self.report.write("PCA components: "+str(features.shape[1])+"\n")
                     print("PCA components: ", features.shape[1])
-                
-                #features = np.array([[getSiftFromLandmarks(samples[i,j].reshape(68,2), cv2.imread(imagesPath+images_train[i])) for j in range(0,sampleSize)] for i in range(0,candidate_shapes.shape[0])])
-                #assert features.shape == (candidate_shapes.shape[0],sampleSize, 68*2*16) #last number depends on hog parameters
+
                 #endfeatures = time.time()
                 #print("Feature Extraction time: ", endfeatures-startfeatures)
-
-            
-
 
                 assert features.shape[0] == labels.shape[0]
 
@@ -259,6 +282,9 @@ class LandmarksDetector:
         return regressors, standardScalarModels, pcaModels
         
     def __prepareDataset(self, df_path, images_train_path):
+        '''
+        Initializes dataset for training, setting candidate shapes and mean shape
+        '''
         df = pd.read_csv(df_path)
         landmarkslist = df['landmarks'].values.tolist()
         self.landmarks_dataset_train = np.array([ast.literal_eval(x) for x in landmarkslist])
@@ -290,6 +316,9 @@ class LandmarksDetector:
 
 
     def __setHyperParameters(self, L, K, sampleSize, alphas, B, T, featuresUsed):
+        '''
+        Sets hyperparameters for the algorithm and prints them to the report
+        '''
         self.L = L
         self.K = K
         self.sampleSize = sampleSize
@@ -311,6 +340,10 @@ class LandmarksDetector:
         self.report.write('T = '+str(T)+'\n')
     
     def __initializeReporting(self, resultsOutputPath):
+        '''
+        Initializes reporting, creates folder for results and report file
+        report is used for each training trial to analyze results
+        '''
         if not os.path.exists(resultsOutputPath):
             os.makedirs(resultsOutputPath)
         numModels = len(os.listdir(resultsOutputPath))
@@ -321,6 +354,11 @@ class LandmarksDetector:
         self.report.write("Models path: "+self.resultsOutputPath+'\n')
 
     def __calculateDistribution(self, x_bar):
+        '''
+        Calculates Probability distribution of candidate shape for each training image using x_bar
+        Distribution is calculated using gaussian similarity function
+        x_bar: mean shape of samples after each stage of training size (trainingSize, 136)
+        '''
         differences = np.tile(x_bar, (len(self.candidate_shapes), 1)) - self.candidate_shapes
         cov =  np.diag(np.var(differences, axis=0))
         inv_cov = np.linalg.inv(cov)
@@ -333,14 +371,20 @@ class LandmarksDetector:
         return distribution
     
     def __UpdateWeights(self,weights, samples):
+        '''
+        Updating weights of samples using affinity matrix A and Replicator Dynamics
+        '''
         AffinityMatrices = self.__CalcAffinityMatrix(samples)
         for t in range(self.T):
             for index,A in enumerate(AffinityMatrices):
                 weights[index] = (np.multiply(weights[index], np.dot(A, weights[index]))) / (np.matmul(weights[index].T, np.dot(A, weights[index])))
         return weights
 
-    #Function to calculate affinity matrix A for each image such that A is of size (sampleSize,sampleSize)
-    def __CalcAffinityMatrix(self, samples): #TODO CHOOSE B, note in gaussian kernel, B is the inverse of the variance, higher B means more sensitive to differences
+    
+    def __CalcAffinityMatrix(self, samples): # B is the inverse of the variance, higher B means more sensitive to differences
+        '''
+        Function to calculate affinity matrix A for each image such that A is of size (sampleSize,sampleSize)
+        '''
         AffinityMatrices = np.zeros((samples.shape[0],self.sampleSize,self.sampleSize))
         for index,sampleVector in enumerate(samples):
             A = np.zeros((self.sampleSize,self.sampleSize))
@@ -351,14 +395,21 @@ class LandmarksDetector:
         return AffinityMatrices
 
     def __getSamplesForEachImage(self, candidate_shapes, probabilities, sampleSize=5, replace=False):
+        '''
+        Sampling from candidate shapes for each image given the probability distribution and sample Size
+        '''
         np.random.seed(21)
         rng = np.random.default_rng()
-        sampled_shapes =rng.choice(candidate_shapes, sampleSize, replace=replace, p=probabilities) #TODO should we sample with replacement?
+        sampled_shapes =rng.choice(candidate_shapes, sampleSize, replace=replace, p=probabilities) 
         return sampled_shapes
 
     #Calculate normalized error between predicted shape and ground truth
     def __calc_normalized_error_single_image(self, predicted_shape, ground_truth):
-        '''For Single Image'''
+        '''
+        Calculating inter-ocular normalized error For Single Image
+        predicted_shape: shape of size (136)
+        ground_truth: shape of size (136)
+        '''
         predicted_shape = predicted_shape.reshape(-1,2)
         ground_truth = ground_truth.reshape(-1,2)
         leftPupilCoordinates = ((ground_truth[leftEyeStartIndex]+ground_truth[leftEyeEndIndex])/2).round().astype(int)
@@ -371,6 +422,9 @@ class LandmarksDetector:
 
     #For list of images
     def __calc_total_error(self, predicted_shapes, ground_truths):
+        '''
+        calculating total error for a list of images given
+        '''
         assert predicted_shapes.shape == ground_truths.shape
 
         totalError = 0
@@ -379,6 +433,16 @@ class LandmarksDetector:
         return totalError/len(predicted_shapes)
     
     def calculateTestAccuracy(self, testfile_path, imagestest_path, x_bar_initial, regressors, featuresUsed, pcamodels=None, standardModels=None):
+        '''
+        Calculate test accuracy for a given dataset
+        testfile_path: path to csv file containing image names and landmarks
+        imagestest_path: path to folder containing images
+        x_bar_initial: mean shape of training data
+        regressors: list of regressors trained at each stage of training
+        featuresUsed: list of features used at each stage of training
+        pcamodels (optional): list of pca models trained for sift
+        standardModels (optional): list of standard models trained for sift
+        '''
         #check if report is closed
         if self.report.closed:
             reportName = self.resultsOutputPath+'/report.txt'

@@ -5,6 +5,10 @@ import numpy as np
 import cv2
 
 def CreateCSVFromAnnotations68(annotationsPath, outputPath):
+    '''
+    Given a folder contains .pts files annotating the landmarks of the images using ibug format
+    outputs a csv file with the following format: images, landmarks
+    '''
     images = []
     landmarks = []
     allfiles = os.listdir(annotationsPath)
@@ -38,6 +42,10 @@ def CreateCSVFromAnnotations68(annotationsPath, outputPath):
     df.to_csv(outputPath, index=False)
 
 def CreateCSVFromAnnotations(annotationsPath, outputPath):
+    '''
+    Given a folder contains images and .txt files annotating the landmarks of the images using helen format
+    outputs a csv file with the following format: images, landmarks
+    '''
     images = []
     landmarks = []
     for filename in os.listdir(annotationsPath):
@@ -56,6 +64,9 @@ def CreateCSVFromAnnotations(annotationsPath, outputPath):
 
 
 def array_to_columns(row):
+    '''
+    Used to reduce helen 194 landmarks to 65 landmarks by keeping every 3rd landmark
+    '''
     new_row = {}
     landmarks = ast.literal_eval(row['landmarks'])
     reducedLandmarks = []
@@ -66,6 +77,9 @@ def array_to_columns(row):
 
 
 def ReduceHelenDataset(datasetPath, targetDatasetPth):
+    '''
+    Used to reduce helen 194 landmarks to 65 landmarks by keeping every 3rd landmark
+    '''
     df = pd.read_csv(datasetPath)
     new_df = df.apply(array_to_columns, axis=1)
     new_df.columns = ['landmarks']
@@ -77,6 +91,17 @@ def ReduceHelenDataset(datasetPath, targetDatasetPth):
 def CropAndResizeDataset(filename='datasets/helen.csv', srcImageDir='datasets/helen/', targetImagesDir = 'datasets/croppedHelen2/', targetCSVName= 'datasets/croppedHelen2.csv',targetShape=(200,200), cropPaddingTop=0.3, cropPaddingBottom=0.1, cropPaddingLeft=0.1, cropPaddingRight=0.1):
     '''
     This function crops the images in the helen dataset around the face and resizes them to input target shape.
+    It also creates a new csv file with the following format: images, landmarks
+
+    filename: path to the csv file containing the images and landmarks
+    srcImageDir: path to the folder containing the images
+    targetImagesDir: path to the folder where the cropped images will be saved
+    targetCSVName: name of the csv file to be created
+    targetShape: shape of the cropped images
+    cropPaddingTop: padding to be added to the top of the face region
+    cropPaddingBottom: padding to be added to the bottom of the face region
+    cropPaddingLeft: padding to be added to the left of the face region
+    cropPaddingRight: padding to be added to the right of the face region
     ''' 
     df = pd.read_csv(filename)
     # Loop through each row in the dataframe
@@ -102,11 +127,6 @@ def CropAndResizeDataset(filename='datasets/helen.csv', srcImageDir='datasets/he
         w, h = x2 - x1, y2 - y1
         
         # Add some padding to the face region
-        # padding = cropPadding
-        # x1 -= int(w * padding)
-        # y1 -= int(h * padding)
-        # x2 += int(w * padding)
-        # y2 += int(h * padding)
         x1 -= int(w * cropPaddingLeft)
         y1 -= int(h * cropPaddingTop)
         x2 += int(w * cropPaddingRight)

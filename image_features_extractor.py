@@ -4,6 +4,10 @@ import numpy as np
 from skimage.feature import hog
 
 def processImage(image):
+    '''
+    Preprocesses the input image by converting it to grayscale and equalizing the histogram
+    image: input image can by grayscale or BGR
+    '''
     # Convert image to grayscale
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -12,7 +16,19 @@ def processImage(image):
     return image
 
 def getHogFromLandmarks(landmarks, image, radius=10, pixels_per_cell=(10, 10), cells_per_block=(2, 2), orientations=8, useSkimage=True, preprocess=True):
+    '''
+    Extracts HOG features from the image around the landmarks
+    landmarks: list of landmarks
+    image: input image
+    radius: radius of the patch around the landmark
+    pixels_per_cell: size of the cell in pixels
+    cells_per_block: number of cells in each block
+    orientations: number of bins in the histogram
+    useSkimage: whether to use skimage or our own implementation
+    preprocess: whether to preprocess the image or not
 
+    output: numpy array of features of size (len(landmarks) * 32)
+    '''
     features = []
 
     if preprocess:
@@ -45,7 +61,15 @@ def getHogFromLandmarks(landmarks, image, radius=10, pixels_per_cell=(10, 10), c
     return np.array(features)
 
 def getSiftFromLandmarks(landmarks, image, radius=10, preprocess=True):
+    '''
+    Extracts SIFT features from the image around the landmarks
+    landmarks: list of landmarks
+    image: input image
+    radius: radius of the patch around the landmark
+    preprocess: whether to preprocess the image or not
 
+    output: numpy array of features of size (len(landmarks) * 128)
+    '''
     features = np.zeros((len(landmarks), 128))
 
     if preprocess:
@@ -86,6 +110,15 @@ def getSiftFromLandmarks(landmarks, image, radius=10, preprocess=True):
 
 
 def getORBFromLandmarks(landmarks, image, radius=10, preprocess=True):
+    '''
+    Extracts ORB features from the image around the landmarks
+    landmarks: list of landmarks
+    image: input image
+    radius: radius of the patch around the landmark
+    preprocess: whether to preprocess the image or not
+
+    output: numpy array of features of size (len(landmarks) * 32)
+    '''
 
     features = np.zeros((len(landmarks), 32))
 
